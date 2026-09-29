@@ -1,0 +1,168 @@
+from pathlib import Path
+import re
+
+path = Path("/mnt/data/24_hours_game.html")
+html = path.read_text(encoding="utf-8")
+
+# Replace the map section with a stylized interactive Gaza Strip map.
+start = html.index('<section class="map">')
+end = html.index('</section>', start) + len('</section>')
+
+new_map = r'''<section class="map" id="gazaMap">
+  <div class="map-title">
+    <b>قطاع غزة</b>
+    <span>خريطة لعب تفاعلية — أحداث اللعبة خيالية</span>
+  </div>
+
+  <svg class="gaza-svg" viewBox="0 0 900 620" preserveAspectRatio="none" aria-label="خريطة تفاعلية لقطاع غزة">
+    <defs>
+      <linearGradient id="land" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#1b2b2a"/>
+        <stop offset="1" stop-color="#14211f"/>
+      </linearGradient>
+      <linearGradient id="sea" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stop-color="#10263a"/>
+        <stop offset="1" stop-color="#0b1828"/>
+      </linearGradient>
+    </defs>
+
+    <rect width="900" height="620" fill="url(#sea)"/>
+    <path class="shore" d="M205,25 C185,95 210,135 194,200 C182,260 202,318 188,375 C176,438 199,505 182,595 L565,595
+      C545,530 565,476 548,416 C535,365 558,310 545,255 C533,205 550,145 530,92 C520,60 525,38 530,25 Z"/>
+
+    <!-- major roads -->
+    <path class="major-road" d="M495 38 C474 120 478 200 475 280 C472 365 468 460 478 585"/>
+    <path class="major-road" d="M260 115 C335 125 405 132 490 138"/>
+    <path class="major-road" d="M220 290 C315 300 392 302 478 305"/>
+    <path class="major-road" d="M205 450 C310 442 390 449 475 458"/>
+
+    <!-- district boundaries -->
+    <path class="boundary" d="M210 205 C305 215 405 210 540 215"/>
+    <path class="boundary" d="M195 375 C300 365 405 378 555 370"/>
+
+    <!-- interactive regions -->
+    <g class="region" onclick="gazaVisit('north')">
+      <path d="M245 45 L510 45 C518 85 515 120 505 155 L215 150 C208 110 225 78 245 45Z"/>
+      <text x="360" y="105">شمال غزة</text>
+      <text class="small-label" x="360" y="125">منطقة شمالية</text>
+    </g>
+
+    <g class="region" onclick="gazaVisit('gaza')">
+      <path d="M215 155 L505 158 L510 245 L205 240Z"/>
+      <text x="355" y="205">مدينة غزة</text>
+      <text class="small-label" x="355" y="224">المدينة</text>
+    </g>
+
+    <g class="region" onclick="gazaVisit('central')">
+      <path d="M205 242 L510 247 L510 360 L195 370Z"/>
+      <text x="350" y="305">المنطقة الوسطى</text>
+      <text class="small-label" x="350" y="325">دير البلح</text>
+    </g>
+
+    <g class="region" onclick="gazaVisit('khan')">
+      <path d="M195 372 L510 363 L535 465 L205 470Z"/>
+      <text x="355" y="425">خان يونس</text>
+      <text class="small-label" x="355" y="445">الجنوب الأوسط</text>
+    </g>
+
+    <g class="region" onclick="gazaVisit('rafah')">
+      <path d="M205 472 L535 467 L560 590 L185 590Z"/>
+      <text x="370" y="535">رفح</text>
+      <text class="small-label" x="370" y="555">جنوب القطاع</text>
+    </g>
+
+    <!-- sea labels -->
+    <text class="sea-label" x="90" y="310">البحر المتوسط</text>
+    <text class="north-label" x="595" y="82">شمال</text>
+    <text class="south-label" x="595" y="570">جنوب</text>
+
+    <!-- points of interest -->
+    <g class="poi" onclick="gazaPOI('hospital')">
+      <circle cx="335" cy="190" r="10"/><text x="352" y="195">🏥 المستشفى</text>
+    </g>
+    <g class="poi" onclick="gazaPOI('market')">
+      <circle cx="425" cy="265" r="10"/><text x="442" y="270">🛒 السوق</text>
+    </g>
+    <g class="poi" onclick="gazaPOI('station')">
+      <circle cx="315" cy="345" r="10"/><text x="332" y="350">🚉 المحطة</text>
+    </g>
+    <g class="poi" onclick="gazaPOI('park')">
+      <circle cx="435" cy="405" r="10"/><text x="452" y="410">🌳 الحديقة</text>
+    </g>
+    <g class="poi" onclick="gazaPOI('oldtown')">
+      <circle cx="390" cy="515" r="10"/><text x="407" y="520">🏚️ الحي القديم</text>
+    </g>
+    <g class="poi home-poi" onclick="gazaPOI('home')">
+      <circle cx="430" cy="225" r="11"/><text x="447" y="230">🏠 شقتك</text>
+    </g>
+  </svg>
+
+  <div class="map-controls">
+    <button onclick="mapZoom(1.1)">＋</button>
+    <button onclick="mapZoom(.9)">−</button>
+    <button onclick="mapReset()">↺</button>
+  </div>
+  <div class="map-help">اضغط على أي منطقة أو موقع للتحرك والتحقيق</div>
+</section>'''
+
+html = html[:start] + new_map + html[end:]
+
+# Replace old map CSS with additional/overriding styles.
+css_marker = '#side{width:370px'
+css = r'''
+.map{flex:1;position:relative;background:#0b1725;overflow:hidden;min-width:0}
+.map:before{display:none}
+.map-title{position:absolute;z-index:8;top:14px;right:16px;background:#101b29dd;border:1px solid #334257;border-radius:12px;padding:10px 14px;backdrop-filter:blur(5px)}
+.map-title b{display:block;color:#f2c94c;font-size:17px}.map-title span{font-size:9px;color:#91a0b3}
+.gaza-svg{width:100%;height:100%;min-height:420px;display:block;transition:transform .3s;transform-origin:center}
+.shore{fill:url(#land);stroke:#65786e;stroke-width:3}
+.major-road{fill:none;stroke:#56645f;stroke-width:7;opacity:.55}
+.boundary{fill:none;stroke:#7a8a82;stroke-width:1.5;stroke-dasharray:8 7;opacity:.55}
+.region path{fill:#1a2b2a;stroke:#53675f;stroke-width:2;cursor:pointer;transition:.2s}
+.region:hover path{fill:#2a4039;stroke:#f2c94c;stroke-width:3}
+.region text{fill:#e9eee9;text-anchor:middle;font-weight:800;font-size:22px;pointer-events:none}
+.region .small-label{font-size:12px;font-weight:normal;fill:#93a69b}
+.poi{cursor:pointer}.poi circle{fill:#f2c94c;stroke:#fff;stroke-width:2;transition:.2s}.poi:hover circle{r:14;fill:#fff}
+.poi text{fill:#e7edf3;font-size:13px;font-weight:700;paint-order:stroke;stroke:#0b1725;stroke-width:4px;stroke-linejoin:round}
+.home-poi circle{fill:#64d99b}.sea-label{fill:#6d9ab8;font-size:22px;transform:rotate(-90deg);transform-origin:90px 310px}.north-label,.south-label{fill:#72859a;font-size:13px}
+.map-controls{position:absolute;left:16px;top:16px;z-index:8;display:flex;gap:5px}.map-controls button{width:34px;height:34px;border-radius:9px;background:#152131;color:#fff;border:1px solid #344257;font-size:18px}.map-controls button:hover{border-color:#f2c94c}
+.map-help{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);background:#0d1723d9;border:1px solid #2c3b4e;color:#9eacbd;border-radius:10px;padding:7px 12px;font-size:10px;white-space:nowrap}
+'''
+
+html = html.replace(css_marker, css + css_marker)
+
+# Add JS for geographic mapping before update().
+js_insert = r'''
+const gazaZones={
+ north:{name:'شمال غزة',x:'44%',y:'15%',scene:'hospital',time:8},
+ gaza:{name:'مدينة غزة',x:'48%',y:'32%',scene:'market',time:6},
+ central:{name:'المنطقة الوسطى',x:'47%',y:'50%',scene:'station',time:8},
+ khan:{name:'خان يونس',x:'49%',y:'69%',scene:'park',time:10},
+ rafah:{name:'رفح',x:'51%',y:'88%',scene:'oldtown',time:12}
+};
+let mapScale=1;
+function gazaVisit(zone){
+  const z=gazaZones[zone]; if(!z)return;
+  move(zone==='north'?'hospital':zone==='gaza'?'market':zone==='central'?'station':zone==='khan'?'park':'oldtown');
+  advance(z.time,'انتقلت إلى '+z.name);
+  log('📍 وصلت إلى '+z.name+'.');
+  showModal(`<h1>📍 ${z.name}</h1><p class="muted">منطقة من خريطة غزة داخل عالم اللعبة. المواقع والأحداث والمهام هنا خيالية ومصممة للعبة.</p>
+  <button class="choice" onclick="gazaPOI('${z.scene}')">استكشاف المنطقة</button>
+  <button class="choice" onclick="closeModal()">إغلاق</button>`);
+}
+function gazaPOI(p){visit(p)}
+function mapZoom(f){
+  mapScale=Math.max(.75,Math.min(1.55,mapScale*f));
+  document.querySelector('.gaza-svg').style.transform=`scale(${mapScale})`;
+}
+function mapReset(){mapScale=1;document.querySelector('.gaza-svg').style.transform='scale(1)'}
+'''
+html = html.replace('function update(){', js_insert + '\nfunction update(){')
+
+# Make the responsive rule work with the new map.
+html = html.replace("@media(max-width:700px){main{flex-direction:column}.map{height:52%}",
+                    "@media(max-width:700px){main{flex-direction:column}.map{height:52%;min-height:330px}")
+html = html.replace("</style>", ".gaza-svg{user-select:none} @media(max-width:700px){.map-title{top:8px;right:8px}.map-title b{font-size:13px}.map-title span{font-size:8px}.map-help{font-size:8px}.region text{font-size:18px}.poi text{font-size:10px}} </style>")
+
+path.write_text(html, encoding="utf-8")
+print(path)
